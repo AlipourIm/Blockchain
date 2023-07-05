@@ -13,7 +13,7 @@ class Blockchain:
         self.hardness = 4
         self.chain = []
         self.transactions = []
-        self.new_block(proof=100, previous_hash=1)
+        self.new_block(proof_of_work=100, previous_hash=1)
 
     def new_block(self, proof_of_work, previous_hash=None):
         """ Create a new block """
