@@ -3,7 +3,7 @@ import sys
 
 from time import time
 from Crypto.Hash import keccak
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from uuid import uuid4
 
 
@@ -30,7 +30,7 @@ class Blockchain:
     def new_transaction(self, sender, receiver, amount):
         """Add a new tranaction to memopool"""
         self.transactions.append({"sender": sender, "receiver": receiver, "amount": amount})
-        return self.last_block["index"] + 1
+        return self.last_block
         
     @staticmethod
     def get_hash(string: str):
@@ -48,7 +48,7 @@ class Blockchain:
     @property
     def last_block(self):
         """Get last block"""
-        pass
+        return self.chain[-1]
 
     @staticmethod
     def proof_of_work_is_valid(self, previous_proof_of_work, proof_of_work):
@@ -75,9 +75,21 @@ def mine():
     return "I will mine"
 
 @app.route("/trxs/new", methods=["POST"])
-def new_transactions():
-    """Will add a new transactions"""
-    return "A new transaction was added"
+def new_transaction():
+    """Will add a new transaction by getting sender and receiver and amount"""
+    values = request.get_json()
+    new_block = blockchain.new_transaction(values["sender"], values["receiver"], values["amount"])
+    response = {"message": f"{new_block} will be added to transactions"}
+    return jsonify(response), 201
+
+@app.route("/trxs/all", methods=["GET"])
+def get_transactions():
+    """Will return current transactions in blockchain that have not been processed"""
+    result = {
+        'chain': blockchain.transactions,
+        'length': len(blockchain.transactions)
+    }
+    return jsonify(result), 200
 
 @app.route("/chain")
 def full_chain():
@@ -90,4 +102,4 @@ def full_chain():
     return jsonify(result), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=sys.argv[1])
+    app.run(host="0.0.0.0", port=sys.argv[1]) 
