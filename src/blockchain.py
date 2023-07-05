@@ -7,9 +7,9 @@ class Blockchain:
         """ Create a new block """
         pass
 
-    def new_transactions(self):
+    def new_transaction(self, sender, receiver, amount):
         """Add a new tranaction to memopool"""
-        pass
+        self.transactions.append({"sender": sender, "receiver": receiver, "amount": amount})
 
     @staticmethod
     def hash(block):
