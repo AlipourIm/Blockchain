@@ -10,6 +10,7 @@ from uuid import uuid4
 class Blockchain:
     """Defines a blockchain on an individual machine"""
     def __init__(self) -> None:
+        self.amount = 50
         self.hardness = 4
         self.chain = []
         self.transactions = []
@@ -50,17 +51,16 @@ class Blockchain:
         """Get last block"""
         return self.chain[-1]
 
-    @staticmethod
     def proof_of_work_is_valid(self, previous_proof_of_work, proof_of_work):
         """Checks if given proof of work is valid"""
-        to_be_checked = f"\"previous_proof_of_work\": {str(previous_proof_of_work)}, \"proof_of_work\": {str(proof_of_work)}"
+        to_be_checked = f"\"previous_proof_of_work\": {str(previous_proof_of_work)}, \"proof_of_work\": {str(proof_of_work)}".encode()
         hash_of_to_be_checked = Blockchain.get_hash(to_be_checked)
         return hash_of_to_be_checked[:self.hardness] == "0" * self.hardness
 
     def proof_of_work(self, previous_proof_of_work):
         """Shows that work has been done by miner"""
         proof_of_work = 0
-        while not Blockchain.proof_of_work_is_valid(previous_proof_of_work, proof_of_work):
+        while not self.proof_of_work_is_valid(previous_proof_of_work, proof_of_work):
             proof_of_work += 1
         
         return proof_of_work
@@ -72,7 +72,17 @@ blockchain = Blockchain()
 @app.route("/mine")
 def mine():
     """This will mine a block and add it to the chain"""
-    return "I will mine"
+    new_proof_of_work = blockchain.proof_of_work(blockchain.last_block["proof_of_work"])
+    blockchain.new_transaction(sender="0", receiver=f"{node_id}", amount=blockchain.amount)
+    new_block = blockchain.new_block(new_proof_of_work, Blockchain.get_block_hash(blockchain.last_block))
+    response = {"message": "new block mined",
+            "index": new_block["index"],
+            "transactions": new_block["transactions"],
+            "proof_of_work": new_block["proof_of_work"],
+            "previous_hash": new_block["previous_hash"]}
+    
+    return jsonify(response), 200
+    
 
 @app.route("/trxs/new", methods=["POST"])
 def new_transaction():
@@ -91,7 +101,7 @@ def get_transactions():
     }
     return jsonify(result), 200
 
-@app.route("/chain")
+@app.route("/chain", methods=["GET"])
 def full_chain():
     """Returns the full chain"""
     result = {
