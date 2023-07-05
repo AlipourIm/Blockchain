@@ -71,6 +71,10 @@ blockchain = Blockchain()
 @app.route("/mine")
 def mine():
     """This will mine a block and add it to the chain"""
+    if len(blockchain.transactions) == 0:
+        response = {"message": "mempool is empty"}
+        return jsonify(response), 400
+    
     blockchain.new_transaction(sender="0", receiver=f"{node_id}", amount=blockchain.amount)
     new_block = blockchain.new_block(Blockchain.get_block_hash(blockchain.last_block))
     new_block = blockchain.set_block_proof_of_work(blockchain.last_block)
