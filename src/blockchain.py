@@ -14,14 +14,14 @@ class Blockchain:
         self.hardness = 4
         self.chain = []
         self.transactions = []
-        self.new_block(proof_of_work=100, previous_hash=1)
+        self.new_block(previous_hash=1)
 
-    def new_block(self, proof_of_work, previous_hash=None):
+    def new_block(self, previous_hash="None"):
         """ Create a new block """
         block = {"index": len(self.chain) + 1,
                  "time_stamp": time(),
                  "transactions": self.transactions,
-                 "proof_of_work": proof_of_work,
+                 "proof_of_work": 0,
                  "previous_hash": previous_hash or self.hash(self.chain[-1])
                 }
         self.transactions = []
@@ -51,19 +51,18 @@ class Blockchain:
         """Get last block"""
         return self.chain[-1]
 
-    def proof_of_work_is_valid(self, previous_proof_of_work, proof_of_work):
+    def proof_of_work_is_valid(self, block):
         """Checks if given proof of work is valid"""
-        to_be_checked = f"\"previous_proof_of_work\": {str(previous_proof_of_work)}, \"proof_of_work\": {str(proof_of_work)}".encode()
-        hash_of_to_be_checked = Blockchain.get_hash(to_be_checked)
+        hash_of_to_be_checked = Blockchain.get_block_hash(block)
         return hash_of_to_be_checked[:self.hardness] == "0" * self.hardness
 
-    def proof_of_work(self, previous_proof_of_work):
+    def set_block_proof_of_work(self, block):
         """Shows that work has been done by miner"""
-        proof_of_work = 0
-        while not self.proof_of_work_is_valid(previous_proof_of_work, proof_of_work):
-            proof_of_work += 1
+        block["proof_of_work"] = 0
+        while not self.proof_of_work_is_valid(block):
+            block["proof_of_work"] += 1
         
-        return proof_of_work
+        return block
 
 app = Flask(__name__)
 node_id = str(uuid4())
@@ -72,9 +71,9 @@ blockchain = Blockchain()
 @app.route("/mine")
 def mine():
     """This will mine a block and add it to the chain"""
-    new_proof_of_work = blockchain.proof_of_work(blockchain.last_block["proof_of_work"])
     blockchain.new_transaction(sender="0", receiver=f"{node_id}", amount=blockchain.amount)
-    new_block = blockchain.new_block(new_proof_of_work, Blockchain.get_block_hash(blockchain.last_block))
+    new_block = blockchain.new_block(Blockchain.get_block_hash(blockchain.last_block))
+    new_block = blockchain.set_block_proof_of_work(blockchain.last_block)
     response = {"message": "new block mined",
             "index": new_block["index"],
             "transactions": new_block["transactions"],
