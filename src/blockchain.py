@@ -1,10 +1,12 @@
 import json
 import sys
+import requests
 
 from time import time
 from Crypto.Hash import keccak
 from flask import Flask, jsonify, request
 from uuid import uuid4
+from urllib.parse import urlparse
 
 
 class Blockchain:
@@ -12,9 +14,47 @@ class Blockchain:
     def __init__(self) -> None:
         self.amount = 50
         self.hardness = 4
+        self.nodes = set()
         self.chain = []
         self.transactions = []
         self.new_block(previous_hash=1)
+        self.set_block_proof_of_work(self.last_block)
+
+    def add_node(self, address):
+        """Adds a new node to nodes"""
+        parsed_url = urlparse(address)
+        self.nodes.add(parsed_url.netloc)
+
+    def chain_is_valid(self, chain):
+        """Check if chain is valid"""
+        current_index = 1
+        while current_index < len(chain):
+            block = chain[current_index]
+            if block["previous_hash"] != self.get_block_hash(chain[current_index-1]):
+                return False
+            if not self.proof_of_work_is_valid(block=block):
+                return False
+            current_index += 1
+            return True
+        
+    def resolve_conflicts(self):
+        """Selects longest valid chain"""
+        neighbors = self.nodes
+        new_chain = None
+        max_length = len(self.chain)
+        for node in neighbors:
+            response = requests.get(f"http://{node}/chain")
+            if response.status_code == 200:
+                length = response.json()["length"]
+                chain = response.json()["chain"]
+                if length > max_length and self.chain_is_valid(chain=chain):
+                    max_length = length
+                    new_chain = chain
+        if new_chain:
+            self.chain = new_chain
+            return True
+        else:
+            return False
 
     def new_block(self, previous_hash="None"):
         """ Create a new block """
@@ -58,7 +98,6 @@ class Blockchain:
 
     def set_block_proof_of_work(self, block):
         """Shows that work has been done by miner"""
-        block["proof_of_work"] = 0
         while not self.proof_of_work_is_valid(block):
             block["proof_of_work"] += 1
         
@@ -68,7 +107,7 @@ app = Flask(__name__)
 node_id = str(uuid4())
 blockchain = Blockchain()
 
-@app.route("/mine")
+@app.route("/mine", methods=["GET"])
 def mine():
     """This will mine a block and add it to the chain"""
     if len(blockchain.transactions) == 0:
@@ -114,5 +153,41 @@ def full_chain():
 
     return jsonify(result), 200
 
+@app.route("/nodes/register", methods=["POST"])
+def register_node():
+    """Registers new node"""
+    values = request.get_json()
+    nodes = values.get("nodes")
+
+    for node in nodes:
+        blockchain.add_node(node)
+    
+    response = {"message": "nodes added",
+                "total_nodes": list(blockchain.nodes)}
+    
+    return jsonify(response), 201
+
+@app.route("/nodes/resolve", methods=["GET"])
+def consensus():
+    """Reaches consensus with other nodes based on their current chain"""
+    replaced = blockchain.resolve_conflicts()
+    response = {}
+    if replaced:
+        response = {
+            "message": "replaced chain with longer chain",
+            "new_chain": blockchain.chain
+        }
+    else:
+        response = {
+            "message": "my chain is longest valid chain",
+            "new_chain": blockchain.chain
+        }
+
+    return jsonify(response), 200
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=sys.argv[1]) 
+    try:
+        app.run(host="0.0.0.0", port=sys.argv[1]) 
+    finally:
+        with open(f"{node_id}.text", "wb") as f:
+            f.write(json.dumps(blockchain.chain).encode())
