@@ -1,7 +1,10 @@
 import json
+import sys
 
 from time import time
 from Crypto.Hash import keccak
+from flask import Flask, jsonify
+from uuid import uuid4
 
 
 class Blockchain:
@@ -62,3 +65,29 @@ class Blockchain:
         
         return proof_of_work
 
+app = Flask(__name__)
+node_id = str(uuid4())
+blockchain = Blockchain()
+
+@app.route("/mine")
+def mine():
+    """This will mine a block and add it to the chain"""
+    return "I will mine"
+
+@app.route("/trxs/new", methods=["POST"])
+def new_transactions():
+    """Will add a new transactions"""
+    return "A new transaction was added"
+
+@app.route("/chain")
+def full_chain():
+    """Returns the full chain"""
+    result = {
+        'chain': blockchain.chain,
+        'length': len(blockchain.chain)
+    }
+
+    return jsonify(result), 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=sys.argv[1])
